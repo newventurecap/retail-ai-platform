@@ -11,8 +11,8 @@ Principles: thin slices, each independently testable; reuse patterns, not runtim
 ## Phase 1: Core access (v0.2.0)
 - `identity`: single place for Entra credentials (managed identity in Azure, developer login locally); `models` consumes it.
 - `observability`: structured logging, OpenTelemetry tracing, token/latency metrics; wrap `models` calls.
-- `.github/workflows`: CI on PR (lint, type-check, tests); tag-triggered build of the package.
-- Done when: a call through `models` produces a trace and CI is green.
+- Lint and tests run locally (`ruff`, `pytest`); GitHub is only the repository, no workflows.
+- Done when: a call through `models` produces a trace and local lint/tests pass.
 
 ## Phase 2: Knowledge and integrations (v0.3.0)
 - `retrieval`: document ingestion, chunking, AI Search indexing, permission-aware retrieval. Index is per application, never shared by default.
@@ -25,14 +25,14 @@ Principles: thin slices, each independently testable; reuse patterns, not runtim
 - Done when: a toy agent runs end to end with a tool call and an approval gate.
 
 ## Phase 4: Evaluation and governance (v0.5.0)
-- `evaluation`: quality and safety test harness (golden sets, groundedness, prompt-injection and PII checks); runs in CI.
+- `evaluation`: quality and safety test harness (golden sets, groundedness, prompt-injection and PII checks); runs locally with `pytest`.
 - Governance: tool allow-lists, audit logging of consequential actions, content-safety hooks.
-- Done when: CI fails on a deliberate quality or safety regression.
+- Done when: tests fail on a deliberate quality or safety regression.
 
 ## Phase 5: Infrastructure (v0.6.0)
 - `infrastructure/terraform`: modules for Foundry/OpenAI, AI Search, Key Vault, Entra app registrations/RBAC, monitoring (App Insights, alerts, dashboards).
 - Per-application environments consume modules via config only.
-- CD workflow: plan on PR, apply on approval.
+- Deployment is manual (see `docs/deployment.md`).
 - Done when: a fresh environment deploys from scratch with one pipeline run.
 
 ## Phase 6: Release as v1.0.0
@@ -47,12 +47,12 @@ Applications (`returns-agent`, `sales-agent`) are built in their own phases on t
 Scope: deploy the Python backend to Azure Container Apps, expose Entra-authenticated APIs, connect Copilot Studio, use Azure AI Foundry for model configuration and evaluation, and Application Insights for operations. Synthetic data and simulated enterprise APIs.
 - `platform/service` (Entra token validation), `applications/returns-agent` (API, tools, simulated APIs, Dockerfile, eval cases).
 - Terraform: Container Apps, ACR, Foundry hub/project, Entra API registration, on top of the Phase 5 modules.
-- `deploy.yml` (Terraform, gate, build, roll out, smoke test), `docs/deployment.md`, `docs/copilot-studio.md`.
+- `docs/deployment.md` (manual Terraform apply, build, roll out, smoke test), `docs/copilot-studio.md`.
 
 Status: phases 1-6 and the demo track are implemented and verified locally (ruff, 46 mocked tests, `terraform validate`). Not verified against real Azure: no deployment, no live Foundry evaluation, no Copilot Studio connector run, no Docker image build (Docker is not installed on this machine).
 
 ## Design decisions
-- Testing is by mocking (fake Azure OpenAI, AI Search, Entra and business APIs), so CI needs no Azure subscription.
+- Testing is by mocking (fake Azure OpenAI, AI Search, Entra and business APIs), so tests need no Azure subscription.
 - Copilot Studio has limited extensibility, so it is only a front end. The agent logic, tools and integrations live in this Python package.
 
 ## Open risks

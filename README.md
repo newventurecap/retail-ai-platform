@@ -62,8 +62,6 @@ retail-ai-platform/
 │
 ├── infrastructure/
 │   └── terraform/
-│
-└── .github/workflows/
 ```
 
 ## Layout
@@ -71,7 +69,6 @@ retail-ai-platform/
 - **platform/**: reusable building blocks shared by every application.
 - **applications/**: individual agents that consume the platform.
 - **infrastructure/**: Terraform for the Azure resources.
-- **.github/workflows/**: CI/CD pipelines.
 
 ## Getting started
 

@@ -15,14 +15,17 @@ Azure OpenAI deployment managed in **Azure AI Foundry** (`MODEL_MODE=azure`), or
 | Log Analytics + Application Insights + alert | Container logs, OpenTelemetry traces/metrics, failed-request alert |
 | Key Vault, AI Search | Secrets and (later) the knowledge index |
 
-## Steps
-1. One-time: create a GitHub OIDC app registration for the pipeline; set repository variables `AZURE_CLIENT_ID`,
-   `AZURE_TENANT_ID`, `AZURE_SUBSCRIPTION_ID`; create a GitHub Environment `example` with required reviewers.
-2. Run the **Deploy** workflow (`workflow_dispatch`). It applies Terraform, runs the lint + test + eval gate,
-   builds and pushes the image, rolls out a new revision, and smoke-tests (health OK, anonymous call returns 401).
-3. Grant users the app roles on the enterprise application: `Returns.Resolve` for agent users,
+## Steps (run from your machine; nothing runs on GitHub)
+1. Sign in: `az login`, then pick the subscription.
+2. Infrastructure: `cd infrastructure/terraform/environments/example && terraform init && terraform apply`.
+3. Quality gate: `pip install -e ".[dev]" -e applications/returns-agent && ruff check . && pytest -q`.
+4. Build and push the image (from the repository root; use the `acr_login_server` output):
+   `az acr build -r <acr-name> -t returns-agent:v1 -f applications/returns-agent/Dockerfile .`
+5. Roll out: `az containerapp update -g <resource_group> -n <container_app_name> --image <acr_login_server>/returns-agent:v1`
+6. Smoke test: `curl <api_url>/healthz` returns OK, and an anonymous `POST /v1/returns/resolve` returns 401.
+7. Grant users the app roles on the enterprise application: `Returns.Resolve` for agent users,
    `Returns.Approve` for reviewers only.
-4. Generate the connector spec and connect Copilot Studio (see `copilot-studio.md`).
+8. Generate the connector spec and connect Copilot Studio (see `copilot-studio.md`).
 
 ## Authentication
 Every `/v1/*` call needs an Entra bearer token for this API (signature, issuer, audience and expiry are checked;
@@ -32,7 +35,7 @@ the service refuses to start without `ENTRA_TENANT_ID` and `API_AUDIENCE`). `res
 ## Operations
 - Traces and metrics: Application Insights (`APPLICATIONINSIGHTS_CONNECTION_STRING` injected as a secret).
 - Audit events (`retail_ai.audit` logger: approvals with reviewer, tool calls, blocked tools) land in Log Analytics.
-- Evaluation: CI runs `applications/returns-agent/tests/test_evals.py`. In Foundry, run
+- Evaluation: run `pytest` (includes `applications/returns-agent/tests/test_evals.py`) before each rollout. In Foundry, run
   `retail_ai.evaluation.foundry.run_foundry_evaluation("applications/returns-agent/evals/cases.jsonl", ...)`
   with `pip install ".[foundry]"` to record results in the Foundry project.
 
