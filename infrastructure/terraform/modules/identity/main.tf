@@ -1,0 +1,19 @@
+# One user-assigned managed identity per application (separate permissions and boundaries).
+variable "name" { type = string }
+variable "location" { type = string }
+variable "resource_group_name" { type = string }
+variable "tags" {
+  type    = map(string)
+  default = {}
+}
+
+resource "azurerm_user_assigned_identity" "this" {
+  name                = "${var.name}-id"
+  location            = var.location
+  resource_group_name = var.resource_group_name
+  tags                = var.tags
+}
+
+output "principal_id" { value = azurerm_user_assigned_identity.this.principal_id }
+output "client_id" { value = azurerm_user_assigned_identity.this.client_id }
+output "id" { value = azurerm_user_assigned_identity.this.id }

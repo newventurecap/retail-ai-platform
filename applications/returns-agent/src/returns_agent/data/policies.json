@@ -1,0 +1,5 @@
+{
+  "electronics": {"return_window_days": 30, "warranty_days": 365},
+  "appliances": {"return_window_days": 30, "warranty_days": 730},
+  "apparel": {"return_window_days": 60, "warranty_days": 0}
+}

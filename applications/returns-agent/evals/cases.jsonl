@@ -1,0 +1,3 @@
+{"query": "I want to return order ORD-1001", "context": "Order ORD-1001 purchased 10 days ago; electronics may be returned within 30 days.", "expected": "refund"}
+{"query": "My headphones from order ORD-1002 stopped working", "context": "Order ORD-1002 purchased 120 days ago; electronics have a 365 day warranty.", "expected": "repair"}
+{"query": "Return order ORD-1003", "context": "Order ORD-1003 purchased 900 days ago; appliances have a 730 day warranty.", "expected": "outside"}

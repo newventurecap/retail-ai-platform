@@ -1,0 +1,6 @@
+{
+  "ORD-1001": {"customer": "CUST-01", "item": "Ultrabook 14", "category": "electronics", "price": 1199.00, "days_since_purchase": 10},
+  "ORD-1002": {"customer": "CUST-02", "item": "Noise-cancelling Headphones", "category": "electronics", "price": 299.00, "days_since_purchase": 120},
+  "ORD-1003": {"customer": "CUST-03", "item": "Blender Pro", "category": "appliances", "price": 149.00, "days_since_purchase": 900},
+  "ORD-1004": {"customer": "CUST-04", "item": "Rain Jacket", "category": "apparel", "price": 89.00, "days_since_purchase": 5}
+}

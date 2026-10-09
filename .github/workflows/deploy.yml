@@ -1,0 +1,78 @@
+name: Deploy
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Environment (matches infrastructure/terraform/environments/<name> and a GitHub Environment)
+        default: example
+permissions:
+  id-token: write   # OIDC login to Azure, no stored secrets
+  contents: read
+env:
+  TF_DIR: infrastructure/terraform/environments/${{ inputs.environment }}
+  ARM_USE_OIDC: "true"
+  ARM_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
+  ARM_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
+  ARM_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+jobs:
+  infrastructure:
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}   # required reviewers on this environment gate the apply
+    outputs:
+      acr: ${{ steps.out.outputs.acr }}
+      rg: ${{ steps.out.outputs.rg }}
+      app: ${{ steps.out.outputs.app }}
+      url: ${{ steps.out.outputs.url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+      - uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+      - run: terraform -chdir=$TF_DIR init
+      - run: terraform -chdir=$TF_DIR plan -out=tfplan
+      - run: terraform -chdir=$TF_DIR apply tfplan
+      - id: out
+        run: |
+          echo "acr=$(terraform -chdir=$TF_DIR output -raw acr_login_server)" >> "$GITHUB_OUTPUT"
+          echo "rg=$(terraform -chdir=$TF_DIR output -raw resource_group)" >> "$GITHUB_OUTPUT"
+          echo "app=$(terraform -chdir=$TF_DIR output -raw container_app_name)" >> "$GITHUB_OUTPUT"
+          echo "url=$(terraform -chdir=$TF_DIR output -raw api_url)" >> "$GITHUB_OUTPUT"
+
+  app:
+    needs: infrastructure
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -e ".[dev]" -e applications/returns-agent && ruff check . && pytest -q   # quality + safety gate
+      - uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+      - name: Build and push image
+        run: |
+          az acr login --name "${ACR%%.*}"
+          docker build -f applications/returns-agent/Dockerfile -t "$ACR/returns-agent:$GITHUB_SHA" .
+          docker push "$ACR/returns-agent:$GITHUB_SHA"
+        env:
+          ACR: ${{ needs.infrastructure.outputs.acr }}
+      - name: Roll out new revision
+        run: |
+          az containerapp update -g "$RG" -n "$APP" --image "$ACR/returns-agent:$GITHUB_SHA"
+        env:
+          ACR: ${{ needs.infrastructure.outputs.acr }}
+          RG: ${{ needs.infrastructure.outputs.rg }}
+          APP: ${{ needs.infrastructure.outputs.app }}
+      - name: Smoke test (health is public, API must reject anonymous calls)
+        run: |
+          curl -fsS "$URL/healthz"
+          test "$(curl -s -o /dev/null -w '%{http_code}' -X POST "$URL/v1/returns/resolve" -H 'content-type: application/json' -d '{"message":"x"}')" = "401"
+        env:
+          URL: ${{ needs.infrastructure.outputs.url }}
